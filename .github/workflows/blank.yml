@@ -1,0 +1,56 @@
+name: My Build Workflow
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  ANYKERNEL_SOURCE: https://github.com/wxyahyj/AnyKernel3
+  ANYKERNEL_SOURCE_BRANCH: master
+  KERNEL_SOURCE: https://github.com/wxyahyj/Xiaomi_Kernel_chopin
+  KERNEL_SOURCE_BRANCH: chopin-R-OSS
+  KERNEL_TARGET: chopin_user
+  BUILD_ARGS: CC=clang LD=ld.lld
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        crosstool-ng-version: [1.24.0]
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v2
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update && sudo apt-get install -y \
+          bison flex gperf libncurses5-dev libssl-dev \
+          help2man #<- Add this line to install help2man tool
+
+    - name: Build and install crosstool-ng
+      working-directory: ./crosstool-ng
+      run: |
+        git checkout tags/crosstool-ng-${{ matrix.crosstool-ng-version }}
+        ./bootstrap && ./configure --prefix=$PWD/install && make -j$(nproc) && make install
+        export PATH=$PWD/install/bin:${PATH}
+
+    - name: Build kernel
+      run: |
+        # Clone AnyKernel3 repository
+        git clone --depth=1 ${{ env.ANYKERNEL_SOURCE }} --branch ${{ env.ANYKERNEL_SOURCE_BRANCH }} anykernel3
+
+        # Clone kernel source code
+        git clone --depth=1 ${{ env.KERNEL_SOURCE }} --branch ${{ env.KERNEL_SOURCE_BRANCH }} kernel
+
+        # Build kernel
+        cd kernel
+        make O=out ARCH=arm64 SUBARCH=arm64 ${KERNEL_TARGET}_defconfig
+        make O=out $BUILD_ARGS ARCH=arm64 SUBARCH=arm64 -j$(nproc)
+
+    - name: Create flashable zip
+      run: |
+        cd kernel
+        cp arch/arm64/boot/Image.gz-dtb ../anykernel3/
+        cd ../anykernel3/
+        zip -r9q kernel.zip ./*
