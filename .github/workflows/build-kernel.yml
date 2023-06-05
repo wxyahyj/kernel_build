@@ -71,13 +71,8 @@ jobs:
                                   CROSS_COMPILE_ARM32=$GITHUB_WORKSPACE/arm-linux-androideabi-4.9/bin/arm-linux-androideabi- "
 
           cd kernel-source
-
           
-
-          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
-
-          
-
+          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s main
           make ${args} ${{ env.KERNEL_TARGET }}_defconfig
 
           make -j$(($(getconf _NPROCESSORS_ONLN) * 2)) ${args}
