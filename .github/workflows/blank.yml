@@ -1,56 +1,81 @@
-name: My Build Workflow
+name: Build Kernel
+
+# 触发条件：每次 push 到 master 分支时触发
 
 on:
-  push:
-    branches: [ main ]
 
-env:
-  ANYKERNEL_SOURCE: https://github.com/wxyahyj/AnyKernel3
-  ANYKERNEL_SOURCE_BRANCH: master
-  KERNEL_SOURCE: https://github.com/wxyahyj/Xiaomi_Kernel_chopin
-  KERNEL_SOURCE_BRANCH: chopin-R-OSS
-  KERNEL_TARGET: chopin_user
-  BUILD_ARGS: CC=clang LD=ld.lld
+  push:
+
+    branches:
+
+      - master
 
 jobs:
+
   build:
+
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        crosstool-ng-version: [1.24.0]
+
+    
+
     steps:
+
     - name: Checkout source code
+
       uses: actions/checkout@v2
 
+      
+
     - name: Install dependencies
+
       run: |
-        sudo apt-get update && sudo apt-get install -y \
-          bison flex gperf libncurses5-dev libssl-dev \
-          help2man #<- Add this line to install help2man tool
 
-    - name: Build and install crosstool-ng
-      working-directory: ./crosstool-ng
+        sudo apt-get update
+
+        sudo apt-get install -y git bc build-essential libncurses5-dev libssl-dev flex bison
+
+        
+
+    - name: Set up toolchain
+
+      # 下载并设置 toolchain 路径和编译器版本
+
       run: |
-        git checkout tags/crosstool-ng-${{ matrix.crosstool-ng-version }}
-        ./bootstrap && ./configure --prefix=$PWD/install && make -j$(nproc) && make install
-        export PATH=$PWD/install/bin:${PATH}
 
-    - name: Build kernel
+        git clone https://github.com/kdrag0n/proton-clang.git --depth=1
+
+        export PATH="$(pwd)/proton-clang/bin:$PATH"
+
+        
+
+    - name: Compile kernel
+
+      # 进入项目目录，并执行编译命令
+
       run: |
-        # Clone AnyKernel3 repository
-        git clone --depth=1 ${{ env.ANYKERNEL_SOURCE }} --branch ${{ env.ANYKERNEL_SOURCE_BRANCH }} anykernel3
 
-        # Clone kernel source code
-        git clone --depth=1 ${{ env.KERNEL_SOURCE }} --branch ${{ env.KERNEL_SOURCE_BRANCH }} kernel
+        cd kernel-source
 
-        # Build kernel
-        cd kernel
-        make O=out ARCH=arm64 SUBARCH=arm64 ${KERNEL_TARGET}_defconfig
-        make O=out $BUILD_ARGS ARCH=arm64 SUBARCH=arm64 -j$(nproc)
+        make ARCH=arm64 <your_defconfig>
 
-    - name: Create flashable zip
-      run: |
-        cd kernel
-        cp arch/arm64/boot/Image.gz-dtb ../anykernel3/
-        cd ../anykernel3/
-        zip -r9q kernel.zip ./*
+        make -j$(nproc) ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu-
+
+    - name: Create release
+
+      # 将编译好的内核打包成 zip 文件，并发布到 GitHub Release 中
+
+      uses: actions/upload-release-asset@v1
+
+      with:
+
+        asset_path: |
+
+          kernel-source/arch/arm64/boot/Image.gz-dtb
+
+          kernel-source/arch/arm64/boot/dtbo.img
+
+        asset_name: kernel.zip
+
+        upload_url: ${{ env.RELEASE_UPLOAD_URL }}
+
+        github_token: ${{ secrets.GITHUB_TOKEN }}
