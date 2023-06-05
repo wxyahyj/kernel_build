@@ -34,7 +34,11 @@ jobs:
 
         run: |
 
-          mkdir clang && curl https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android12-release/clang-r416183b1.tar.gz -RLO && tar -C clang/ -xzf clang-*.tar.gz
+          git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 aarch64-linux-android-4.9
+
+          git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9 arm-linux-androideabi-4.9
+
+          mkdir clang && curl https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android12-release/clang-r416183b1.tar.gz -RLO && tar -C clang/ -xf clang-*.tar.gz
 
       - name: Pull kernel source
 
@@ -60,11 +64,19 @@ jobs:
 
                                   ${{ env.BUILD_ARGS }} \
 
-                                  CROSS_COMPILE=$GITHUB_WORKSPACE/aarch64-linux-android-4.9/bin/aarch64-linux-android- "
+                                  CLANG_TRIPLE=aarch64-linux-gnu- \
+
+                                  CROSS_COMPILE=$GITHUB_WORKSPACE/aarch64-linux-android-4.9/bin/aarch64-linux-android- \
+
+                                  CROSS_COMPILE_ARM32=$GITHUB_WORKSPACE/arm-linux-androideabi-4.9/bin/arm-linux-androideabi- "
 
           cd kernel-source
 
+          
+
           curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
+
+          
 
           make ${args} ${{ env.KERNEL_TARGET }}_defconfig
 
@@ -76,15 +88,21 @@ jobs:
 
           git clone --depth=1 ${{ env.ANYKERNEL_SOURCE }} -b ${{ env.ANYKERNEL_SOURCE_BRANCH }} AnyKernel3 && rm -rf AnyKernel3/.git AnyKernel3/.github AnyKernel3/LICENSE AnyKernel3/README.md
 
-          if [[ -f out/arch/arm64/boot/Image ]]; then
+          if [[ -f out/arch/arm64/boot/Image.gz-dtb ]]; then
 
-            gzip out/arch/arm64/boot/Image
+            cp out/arch/arm64/boot/Image.gz-dtb AnyKernel3/Image.gz-dtb
 
-            cp out/arch/arm64/boot/Image.gz AnyKernel3/Image.gz
+          elif [[ -f out/arch/arm64/boot/Image-dtb ]]; then
+
+            cp out/arch/arm64/boot/Image-dtb AnyKernel3/Image-dtb
 
           elif [[ -f out/arch/arm64/boot/Image.gz ]]; then
 
             cp out/arch/arm64/boot/Image.gz AnyKernel3/Image.gz
+
+          elif [[ -f out/arch/arm64/boot/Image ]]; then
+
+            cp out/arch/arm64/boot/Image AnyKernel3/Image
 
           fi
 
@@ -102,5 +120,4 @@ jobs:
 
           name: ${{ env.KERNEL_VERSION }}_${{ env.KERNEL_TARGET }}
 
-          path: AnyKernel3/*
-
+          path: AnyKernel3/*我需要你帮我修改clang/gcc工具
