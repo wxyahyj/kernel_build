@@ -120,4 +120,4 @@ jobs:
 
           name: ${{ env.KERNEL_VERSION }}_${{ env.KERNEL_TARGET }}
 
-          path: AnyKernel3/*我需要你帮我修改clang/gcc工具
+          path: AnyKernel3
